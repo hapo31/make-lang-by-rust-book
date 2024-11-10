@@ -21,3 +21,36 @@ pub fn eval<'src>(code: Value<'src>, vm: &mut Vm<'src>) {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::parse::Value;
+
+    #[test]
+    fn test_eval() {
+        let mut vm = Vm::new();
+        eval(Value::Num(4), &mut vm);
+        eval(Value::Num(4), &mut vm);
+        eval(Value::Op("-"), &mut vm);
+        eval(Value::Num(4), &mut vm);
+        eval(Value::Num(2), &mut vm);
+        eval(Value::Op("+"), &mut vm);
+        eval(Value::Num(3), &mut vm);
+        eval(Value::Op("/"), &mut vm);
+        eval(Value::Num(4), &mut vm);
+        eval(Value::Op("*"), &mut vm);
+        eval(Value::Op("*"), &mut vm);
+        assert_eq!(vm.stack, vec![Value::Num(0)]);
+    }
+
+    #[test]
+    fn test_eval_if() {
+        let mut vm = Vm::new();
+        eval(Value::Num(1), &mut vm);
+        eval(Value::Block(vec![Value::Num(1)]), &mut vm);
+        eval(Value::Block(vec![Value::Num(2)]), &mut vm);
+        eval(Value::Op("if"), &mut vm);
+        assert_eq!(vm.stack, vec![Value::Num(1)]);
+    }
+}
