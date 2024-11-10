@@ -2,6 +2,7 @@
 pub enum Value<'src> {
     Num(i32),
     Op(&'src str),
+    Sym(&'src str),
     Block(Vec<Value<'src>>),
 }
 
@@ -20,7 +21,7 @@ impl<'src> Value<'src> {
     }
 }
 
-pub fn op_parse<'src>(word: &'src str) -> Result<Value<'src>, &'src str> {
+fn op_parse<'src>(word: &'src str) -> Result<Value<'src>, &'src str> {
     match word {
         "+" => Ok(Value::Op("+")),
         "-" => Ok(Value::Op("-")),
@@ -30,7 +31,7 @@ pub fn op_parse<'src>(word: &'src str) -> Result<Value<'src>, &'src str> {
     }
 }
 
-pub fn num_parse<'src>(word: &'src str) -> Result<Value<'src>, ()> {
+fn num_parse<'src>(word: &'src str) -> Result<Value<'src>, ()> {
     match word.parse::<i32>() {
         Ok(num) => Ok(Value::Num(num)),
         Err(_) => Err(()),

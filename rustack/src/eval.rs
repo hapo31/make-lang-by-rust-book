@@ -1,19 +1,21 @@
 use crate::op::*;
 use crate::parse::Value;
+use crate::vm::Vm;
 
-pub fn eval<'src>(code: Value<'src>, stack: &mut Vec<Value<'src>>) {
+pub fn eval<'src>(code: Value<'src>, vm: &mut Vm<'src>) {
     match code {
-        Value::Num(num) => stack.push(Value::Num(num)),
+        Value::Num(num) => vm.stack.push(Value::Num(num)),
         Value::Op(op) => match op {
-            "+" => add(stack),
-            "-" => sub(stack),
-            "*" => mul(stack),
-            "/" => div(stack),
+            "+" => add(vm),
+            "-" => sub(vm),
+            "*" => mul(vm),
+            "/" => div(vm),
             _ => panic!("Unknown operator: {}", op),
         },
+        Value::Sym(sym) => {}
         Value::Block(block) => {
             for value in block {
-                eval(value, stack);
+                eval(value, vm);
             }
         }
     }
