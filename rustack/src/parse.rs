@@ -1,15 +1,21 @@
 #[derive(Debug, PartialEq, Eq)]
-pub enum Value<'a> {
+pub enum Value<'src> {
     Num(i32),
-    Op(&'a str),
-    Block(Vec<Value<'a>>),
+    Op(&'src str),
+    Block(Vec<Value<'src>>),
 }
 
 impl<'src> Value<'src> {
     pub fn as_num(&self) -> i32 {
         match self {
-            Value::Num(num) => *num,
+            Self::Num(num) => *num,
             _ => panic!("Value is not a number"),
+        }
+    }
+    pub fn to_block(self) -> Vec<Value<'src>> {
+        match self {
+            Self::Block(block) => block,
+            _ => panic!("Value is not a block"),
         }
     }
 }
