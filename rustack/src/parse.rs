@@ -10,13 +10,13 @@ impl<'src> Value<'src> {
     pub fn as_num(&self) -> i32 {
         match self {
             Self::Num(num) => *num,
-            _ => panic!("Value is not a number"),
+            _ => panic!("Value is not a number, actual: {self:?}"),
         }
     }
     pub fn to_block(self) -> Vec<Value<'src>> {
         match self {
             Self::Block(block) => block,
-            _ => panic!("Value is not a block"),
+            _ => vec![self],
         }
     }
 }
@@ -27,6 +27,7 @@ fn op_parse<'src>(word: &'src str) -> Result<Value<'src>, &'src str> {
         "-" => Ok(Value::Op("-")),
         "*" => Ok(Value::Op("*")),
         "/" => Ok(Value::Op("/")),
+        "if" => Ok(Value::Op("if")),
         _ => Err(word),
     }
 }

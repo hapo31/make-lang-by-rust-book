@@ -10,6 +10,7 @@ pub fn eval<'src>(code: Value<'src>, vm: &mut Vm<'src>) {
             "-" => sub(vm),
             "*" => mul(vm),
             "/" => div(vm),
+            "if" => op_if(vm),
             _ => panic!("Unknown operator: {}", op),
         },
         Value::Sym(sym) => {}
