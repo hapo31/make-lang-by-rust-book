@@ -1,5 +1,4 @@
 mod eval;
-mod op;
 mod parse;
 mod vm;
 
