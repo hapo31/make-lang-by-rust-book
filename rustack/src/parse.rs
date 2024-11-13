@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Value<'src> {
     Num(i32),
     Op(&'src str),
@@ -19,23 +19,12 @@ impl<'src> Value<'src> {
             _ => vec![self],
         }
     }
-}
 
-fn op_parse<'src>(word: &'src str) -> Result<Value<'src>, &'src str> {
-    match word {
-        "+" => Ok(Value::Op("+")),
-        "-" => Ok(Value::Op("-")),
-        "*" => Ok(Value::Op("*")),
-        "/" => Ok(Value::Op("/")),
-        "if" => Ok(Value::Op("if")),
-        _ => Err(word),
-    }
-}
-
-fn num_parse<'src>(word: &'src str) -> Result<Value<'src>, ()> {
-    match word.parse::<i32>() {
-        Ok(num) => Ok(Value::Num(num)),
-        Err(_) => Err(()),
+    pub fn to_sym(&self) -> &'src str {
+        match self {
+            Self::Sym(sym) => sym,
+            _ => panic!("Value is not a symbol, actual: {self:?}"),
+        }
     }
 }
 
@@ -58,18 +47,49 @@ pub fn parse<'src, 'a>(input: &'a [&'src str]) -> (Value<'src>, &'a [&'src str])
                 return (Value::Block(tokens), rest);
             }
             _ => {
-                if let Ok(value) = num_parse(word) {
-                    tokens.push(value);
+                let code = if let Ok(value) = num_parse(word) {
+                    value
+                } else if let Ok(sym) = sym_parse(word) {
+                    sym
                 } else if let Ok(op) = op_parse(word) {
-                    tokens.push(op);
+                    op
                 } else {
                     panic!("{:?} could not be parsed.", word);
-                }
+                };
+
+                tokens.push(code);
             }
         }
         words = rest;
     }
     (Value::Block(tokens), words)
+}
+
+fn op_parse<'src>(word: &'src str) -> Result<Value<'src>, &'src str> {
+    match word {
+        "+" => Ok(Value::Op("+")),
+        "-" => Ok(Value::Op("-")),
+        "*" => Ok(Value::Op("*")),
+        "/" => Ok(Value::Op("/")),
+        "if" => Ok(Value::Op("if")),
+        "def" => Ok(Value::Op("def")),
+        _ => Err(word),
+    }
+}
+
+fn num_parse<'src>(word: &'src str) -> Result<Value<'src>, ()> {
+    match word.parse::<i32>() {
+        Ok(num) => Ok(Value::Num(num)),
+        Err(_) => Err(()),
+    }
+}
+
+fn sym_parse<'src>(word: &'src str) -> Result<Value<'src>, ()> {
+    if let Some(word) = word.strip_prefix("/") {
+        Ok(Value::Sym(&word[0..]))
+    } else {
+        Err(())
+    }
 }
 
 #[cfg(test)]
