@@ -3,50 +3,51 @@ use crate::vm::Vm;
 
 pub fn eval<'src>(code: Value<'src>, vm: &mut Vm<'src>) {
     match code {
-        Value::Num(num) => vm.stack.push(Value::Num(num)),
         Value::Op(op) => match op {
             "+" => add(vm),
             "-" => sub(vm),
             "*" => mul(vm),
             "/" => div(vm),
+            "<" => lt(vm),
             "if" => op_if(vm),
+            "def" => op_def(vm),
             _ => panic!("Unknown operator: {}", op),
         },
-        Value::Sym(sym) => {}
+        Value::Sym(sym) => {
+            let value = vm.vars.get(sym).expect(&format!("{sym:?} is not defined."));
+            vm.stack.push(Value::Num(value.as_num()));
+        }
         Value::Block(block) => {
             for value in block {
                 eval(value, vm);
             }
         }
+        _ => vm.stack.push(code),
     }
 }
 
-fn add(vm: &mut Vm) {
-    let lhs = vm.stack.pop().unwrap().as_num();
-    let rhs = vm.stack.pop().unwrap().as_num();
+macro_rules! impl_op {
+    {$name:ident, $op:tt} => {
+        fn $name(vm: &mut Vm) {
+            let lhs = vm.stack.pop().unwrap().as_num();
+            let rhs = vm.stack.pop().unwrap().as_num();
 
-    vm.stack.push(Value::Num(lhs + rhs));
+            vm.stack.push(Value::Num((lhs $op rhs) as i32));
+        }
+    };
 }
 
-fn sub(vm: &mut Vm) {
-    let lhs = vm.stack.pop().unwrap().as_num();
-    let rhs = vm.stack.pop().unwrap().as_num();
+impl_op! (add, +);
+impl_op! (sub, -);
+impl_op! (mul, *);
+impl_op! (div, /);
+impl_op! (lt, <);
 
-    vm.stack.push(Value::Num(lhs - rhs));
-}
+fn op_def(vm: &mut Vm) {
+    let value = vm.stack.pop().unwrap();
+    let sym = vm.stack.pop().unwrap().to_sym();
 
-fn mul(vm: &mut Vm) {
-    let lhs = vm.stack.pop().unwrap().as_num();
-    let rhs = vm.stack.pop().unwrap().as_num();
-
-    vm.stack.push(Value::Num(lhs * rhs));
-}
-
-fn div(vm: &mut Vm) {
-    let lhs = vm.stack.pop().unwrap().as_num();
-    let rhs = vm.stack.pop().unwrap().as_num();
-
-    vm.stack.push(Value::Num(lhs / rhs));
+    vm.vars.insert(sym, value);
 }
 
 fn op_if(vm: &mut Vm) {
