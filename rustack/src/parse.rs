@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Value<'src> {
@@ -20,10 +20,15 @@ impl<'src> ParseContext<'src> {
         }
     }
 
-    pub fn add_var(&mut self, var: &'src str) {
-        self.vars.insert(var);
+    pub fn add_var(&mut self, var: &'src str) -> Result<(), ()> {
+        match self.vars.insert(var) {
+            true => Ok(()),
+            false => Err(()),
+        }
     }
 
+    // 今のところテストでしか使ってないが、実コードでも使うようになったら cfg 外す
+    #[cfg(test)]
     pub fn has_var(&self, var: &str) -> bool {
         self.vars.contains(var)
     }
@@ -112,9 +117,10 @@ fn num_parse<'src>(word: &'src str) -> Result<Value<'src>, ()> {
 
 fn sym_parse<'src>(word: &'src str, context: &mut ParseContext<'src>) -> Result<Value<'src>, ()> {
     if let Some(word) = word.strip_prefix("/") {
-        let sym = word;
-        context.add_var(sym);
-        Ok(Value::Sym(&word[0..]))
+        match context.add_var(word) {
+            Ok(()) => Ok(Value::Sym(&word[0..])),
+            Err(()) => panic!("{:?} is already declared.", word),
+        }
     } else {
         Err(())
     }
@@ -146,5 +152,19 @@ mod test {
                 &input[0..0]
             )
         );
+    }
+
+    #[test]
+    fn test_vardef_parse() {
+        let mut parse_context = ParseContext::new();
+        let input = &["/a", "1", "def"];
+        assert_eq!(
+            parse(input, &mut parse_context),
+            (
+                Value::Block(vec![Value::Sym("a"), Value::Num(1), Value::Op("def")]),
+                &input[0..0]
+            )
+        );
+        assert!(parse_context.has_var("a"));
     }
 }
