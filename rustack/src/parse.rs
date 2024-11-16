@@ -1,9 +1,32 @@
+use std::collections::{HashMap, HashSet};
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Value<'src> {
     Num(i32),
     Op(&'src str),
     Sym(&'src str),
     Block(Vec<Value<'src>>),
+}
+
+#[derive(Debug)]
+pub struct ParseContext<'src> {
+    pub vars: HashSet<&'src str>,
+}
+
+impl<'src> ParseContext<'src> {
+    pub fn new() -> Self {
+        Self {
+            vars: HashSet::new(),
+        }
+    }
+
+    pub fn add_var(&mut self, var: &'src str) {
+        self.vars.insert(var);
+    }
+
+    pub fn has_var(&self, var: &str) -> bool {
+        self.vars.contains(var)
+    }
 }
 
 impl<'src> Value<'src> {
@@ -28,7 +51,10 @@ impl<'src> Value<'src> {
     }
 }
 
-pub fn parse<'src, 'a>(input: &'a [&'src str]) -> (Value<'src>, &'a [&'src str]) {
+pub fn parse<'src, 'a>(
+    input: &'a [&'src str],
+    context: &mut ParseContext<'src>,
+) -> (Value<'src>, &'a [&'src str]) {
     let mut tokens = vec![];
     let mut words = input;
 
@@ -40,7 +66,7 @@ pub fn parse<'src, 'a>(input: &'a [&'src str]) -> (Value<'src>, &'a [&'src str])
         match word {
             "{" => {
                 let value;
-                (value, rest) = parse(rest);
+                (value, rest) = parse(rest, context);
                 tokens.push(value);
             }
             "}" => {
@@ -49,7 +75,7 @@ pub fn parse<'src, 'a>(input: &'a [&'src str]) -> (Value<'src>, &'a [&'src str])
             _ => {
                 let code = if let Ok(value) = num_parse(word) {
                     value
-                } else if let Ok(sym) = sym_parse(word) {
+                } else if let Ok(sym) = sym_parse(word, context) {
                     sym
                 } else if let Ok(op) = op_parse(word) {
                     op
@@ -84,8 +110,10 @@ fn num_parse<'src>(word: &'src str) -> Result<Value<'src>, ()> {
     }
 }
 
-fn sym_parse<'src>(word: &'src str) -> Result<Value<'src>, ()> {
+fn sym_parse<'src>(word: &'src str, context: &mut ParseContext<'src>) -> Result<Value<'src>, ()> {
     if let Some(word) = word.strip_prefix("/") {
+        let sym = word;
+        context.add_var(sym);
         Ok(Value::Sym(&word[0..]))
     } else {
         Err(())
@@ -104,9 +132,10 @@ mod test {
 
     #[test]
     fn test_block_parse() {
+        let mut parse_context = ParseContext::new();
         let input = &["1", "2", "+", "{", "3", "4", "}"];
         assert_eq!(
-            parse(input),
+            parse(input, &mut parse_context),
             (
                 Value::Block(vec![
                     Value::Num(1),

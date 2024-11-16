@@ -14,8 +14,18 @@ pub fn eval<'src>(code: Value<'src>, vm: &mut Vm<'src>) {
             _ => panic!("Unknown operator: {}", op),
         },
         Value::Sym(sym) => {
-            let value = vm.vars.get(sym).expect(&format!("{sym:?} is not defined."));
-            vm.stack.push(Value::Num(value.as_num()));
+            // 変数がきちんとコード中で定義されているか
+            if let Some(declared) = vm.declares.get(sym) {
+                if *declared {
+                    // その文脈で変数が定義済みであれば、変数の値をスタックに積む
+                    let value = vm.vars.get(sym).unwrap();
+                    vm.stack.push(Value::Num(value.as_num()));
+                }
+            } else {
+                panic!("{sym:?} is not declared.");
+            }
+            // いずれの場合にも当てはまらなければそのままスタックに積む
+            vm.stack.push(code)
         }
         Value::Block(block) => {
             for value in block {
@@ -48,6 +58,7 @@ fn op_def(vm: &mut Vm) {
     let sym = vm.stack.pop().unwrap().to_sym();
 
     vm.vars.insert(sym, value);
+    vm.declares.entry(sym).and_modify(|e| *e = true);
 }
 
 fn op_if(vm: &mut Vm) {
@@ -75,65 +86,74 @@ fn op_if(vm: &mut Vm) {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::parse::Value;
+    use crate::parse::{self, Value};
 
     #[test]
     fn test_add() {
-        let mut vm = Vm::from_code(vec![Value::Num(1), Value::Num(2)]);
+        let mut parse_context = parse::ParseContext::new();
+        let mut vm = Vm::from_code(vec![Value::Num(1), Value::Num(2)], &mut parse_context);
         add(&mut vm);
         assert_eq!(vm.stack, vec![Value::Num(3)]);
     }
 
     #[test]
     fn test_sub() {
-        let mut vm = Vm::from_code(vec![Value::Num(1), Value::Num(2)]);
+        let mut parse_context = parse::ParseContext::new();
+        let mut vm = Vm::from_code(vec![Value::Num(1), Value::Num(2)], &mut parse_context);
         sub(&mut vm);
         assert_eq!(vm.stack, vec![Value::Num(1)]);
     }
 
     #[test]
     fn test_mul() {
-        let mut vm = Vm::from_code(vec![Value::Num(2), Value::Num(3)]);
+        let mut parse_context = parse::ParseContext::new();
+        let mut vm = Vm::from_code(vec![Value::Num(2), Value::Num(3)], &mut parse_context);
         mul(&mut vm);
         assert_eq!(vm.stack, vec![Value::Num(6)]);
     }
 
     #[test]
     fn test_div() {
-        let mut vm = Vm::from_code(vec![Value::Num(3), Value::Num(6)]);
+        let mut parse_context = parse::ParseContext::new();
+        let mut vm = Vm::from_code(vec![Value::Num(3), Value::Num(6)], &mut parse_context);
         div(&mut vm);
         assert_eq!(vm.stack, vec![Value::Num(2)]);
     }
 
     #[test]
     fn test_op_if_true() {
-        {
-            let mut vm = Vm::from_code(vec![
+        let mut parse_context = parse::ParseContext::new();
+        let mut vm = Vm::from_code(
+            vec![
                 Value::Block(vec![Value::Num(1)]),
                 Value::Block(vec![Value::Num(2)]),
                 Value::Block(vec![Value::Num(1)]),
-            ]);
-            op_if(&mut vm);
-            assert_eq!(vm.stack, vec![Value::Num(2)]);
-        }
+            ],
+            &mut parse_context,
+        );
+        op_if(&mut vm);
+        assert_eq!(vm.stack, vec![Value::Num(2)]);
     }
 
     #[test]
     fn test_op_if_false() {
-        {
-            let mut vm = Vm::from_code(vec![
+        let mut parse_context = parse::ParseContext::new();
+        let mut vm = Vm::from_code(
+            vec![
                 Value::Block(vec![Value::Num(0)]),
                 Value::Block(vec![Value::Num(2)]),
                 Value::Block(vec![Value::Num(1)]),
-            ]);
-            op_if(&mut vm);
-            assert_eq!(vm.stack, vec![Value::Num(1)]);
-        }
+            ],
+            &mut parse_context,
+        );
+        op_if(&mut vm);
+        assert_eq!(vm.stack, vec![Value::Num(1)]);
     }
 
     #[test]
     fn test_eval() {
-        let mut vm = Vm::new();
+        let mut parse_context = parse::ParseContext::new();
+        let mut vm = Vm::new(&mut parse_context);
         eval(Value::Num(4), &mut vm);
         eval(Value::Num(4), &mut vm);
         eval(Value::Op("-"), &mut vm);
@@ -150,7 +170,8 @@ mod test {
 
     #[test]
     fn test_eval_if() {
-        let mut vm = Vm::new();
+        let mut parse_context = parse::ParseContext::new();
+        let mut vm = Vm::new(&mut parse_context);
         eval(Value::Num(1), &mut vm);
         eval(Value::Block(vec![Value::Num(1)]), &mut vm);
         eval(Value::Block(vec![Value::Num(2)]), &mut vm);
