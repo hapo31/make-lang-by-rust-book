@@ -15,18 +15,16 @@ pub fn eval<'src>(code: Value<'src>, vm: &mut Vm<'src>) {
         },
         Value::Sym(sym) => {
             // 変数がきちんとコード中で定義されているか
-            if let Some(declared) = vm.declares.get(sym) {
-                if *declared {
-                    // その文脈で変数が定義済みであれば、変数の値をスタックに積む
-                    let value = vm.vars.get(sym).unwrap();
-
-                    return vm.stack.push(Value::Num(value.as_num()));
-                }
-            } else {
-                panic!("{sym:?} is not declared.");
+            match vm.declares.get(sym) {
+                // 変数が定義されている場合はその値をスタックに積む
+                Some(true) => vm
+                    .stack
+                    .push(Value::Num(vm.vars.get(sym).unwrap().as_num())),
+                // 変数がまだ定義されていない場合はそのままスタックに積む
+                Some(false) => vm.stack.push(code),
+                // 変数がどこにも定義されていない場合は実行時エラー
+                None => panic!("{sym:?} is not declared."),
             }
-            // いずれの場合にも当てはまらなければそのままスタックに積む
-            vm.stack.push(code)
         }
         Value::Block(block) => {
             for value in block {
