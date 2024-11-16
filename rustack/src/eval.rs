@@ -93,7 +93,10 @@ mod test {
         let mut parse_context = parse::ParseContext::new();
 
         for vars in declared_vars {
-            parse_context.add_var(*vars);
+            match parse_context.add_var(*vars) {
+                Ok(()) => {}
+                Err(()) => panic!("{:?} is already declared.", vars),
+            }
         }
 
         let vm = Vm::from_code(code, &parse_context);
