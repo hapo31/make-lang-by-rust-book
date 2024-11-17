@@ -80,10 +80,10 @@ pub fn parse<'src, 'a>(
             _ => {
                 let code = if let Ok(value) = num_parse(word) {
                     value
-                } else if let Ok(sym) = sym_parse(word, context) {
-                    sym
                 } else if let Ok(op) = op_parse(word) {
                     op
+                } else if let Ok(sym) = sym_parse(word, context) {
+                    sym
                 } else {
                     panic!("{:?} could not be parsed.", word);
                 };
@@ -102,6 +102,8 @@ fn op_parse<'src>(word: &'src str) -> Result<Value<'src>, &'src str> {
         "-" => Ok(Value::Op("-")),
         "*" => Ok(Value::Op("*")),
         "/" => Ok(Value::Op("/")),
+        "<" => Ok(Value::Op("<")),
+        ">" => Ok(Value::Op(">")),
         "if" => Ok(Value::Op("if")),
         "def" => Ok(Value::Op("def")),
         _ => Err(word),
@@ -122,7 +124,7 @@ fn sym_parse<'src>(word: &'src str, context: &mut ParseContext<'src>) -> Result<
             Err(()) => panic!("{:?} is already declared.", word),
         }
     } else {
-        Err(())
+        Ok(Value::Sym(&word))
     }
 }
 
