@@ -9,6 +9,7 @@ pub fn eval<'src>(code: Value<'src>, vm: &mut Vm<'src>) {
             "*" => mul(vm),
             "/" => div(vm),
             "<" => lt(vm),
+            ">" => gt(vm),
             "if" => op_if(vm),
             "def" => op_def(vm),
             _ => panic!("Unknown operator: {}", op),
@@ -51,6 +52,7 @@ impl_op! (sub, -);
 impl_op! (mul, *);
 impl_op! (div, /);
 impl_op! (lt, <);
+impl_op! (gt, >);
 
 fn op_def(vm: &mut Vm) {
     let value = vm.stack.pop().unwrap();
