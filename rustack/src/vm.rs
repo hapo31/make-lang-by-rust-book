@@ -19,6 +19,7 @@ impl<'src> Vm<'src> {
         }
     }
 
+    #[cfg(test)]
     pub fn from_code(code: Vec<Value<'src>>, parse_context: &ParseContext<'src>) -> Self {
         Self {
             stack: code,
