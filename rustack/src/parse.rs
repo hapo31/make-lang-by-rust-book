@@ -1,11 +1,39 @@
 use std::collections::HashSet;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Value<'src> {
+pub enum Value {
     Num(i32),
-    Op(&'src str),
-    Sym(&'src str),
-    Block(Vec<Value<'src>>),
+    Op(String),
+    Sym(String),
+    Block(Vec<Value>),
+}
+
+#[macro_export]
+macro_rules! num {
+    ($value:expr) => {
+        Value::Num($value)
+    };
+}
+
+#[macro_export]
+macro_rules! op {
+    ($value:expr) => {
+        Value::Op($value.to_string())
+    };
+}
+
+#[macro_export]
+macro_rules! sym {
+    ($value:expr) => {
+        Value::Sym($value.to_string())
+    };
+}
+
+#[macro_export]
+macro_rules! block {
+    ($($value:expr),*) => {
+        Value::Block(vec![$($value),*])
+    };
 }
 
 #[derive(Debug)]
@@ -34,21 +62,21 @@ impl<'src> ParseContext<'src> {
     }
 }
 
-impl<'src> Value<'src> {
+impl<'src> Value {
     pub fn as_num(&self) -> i32 {
         match self {
             Self::Num(num) => *num,
             _ => panic!("Value is not a number, actual: {self:?}"),
         }
     }
-    pub fn to_block(self) -> Vec<Value<'src>> {
+    pub fn to_block(self) -> Vec<Value> {
         match self {
             Self::Block(block) => block,
             _ => vec![self],
         }
     }
 
-    pub fn to_sym(&self) -> &'src str {
+    pub fn to_sym(&self) -> &String {
         match self {
             Self::Sym(sym) => sym,
             _ => panic!("Value is not a symbol, actual: {self:?}"),
@@ -59,7 +87,7 @@ impl<'src> Value<'src> {
 pub fn parse<'src, 'a>(
     input: &'a [&'src str],
     context: &mut ParseContext<'src>,
-) -> (Value<'src>, &'a [&'src str]) {
+) -> (Value, &'a [&'src str]) {
     let mut tokens = vec![];
     let mut words = input;
 
@@ -96,35 +124,35 @@ pub fn parse<'src, 'a>(
     (Value::Block(tokens), words)
 }
 
-fn op_parse<'src>(word: &'src str) -> Result<Value<'src>, &'src str> {
+fn op_parse(word: &str) -> Result<Value, &str> {
     match word {
-        "+" => Ok(Value::Op("+")),
-        "-" => Ok(Value::Op("-")),
-        "*" => Ok(Value::Op("*")),
-        "/" => Ok(Value::Op("/")),
-        "<" => Ok(Value::Op("<")),
-        ">" => Ok(Value::Op(">")),
-        "if" => Ok(Value::Op("if")),
-        "def" => Ok(Value::Op("def")),
+        "+" => Ok(op!("+")),
+        "-" => Ok(op!("-")),
+        "*" => Ok(op!("*")),
+        "/" => Ok(op!("/")),
+        "<" => Ok(op!("<")),
+        ">" => Ok(op!(">")),
+        "if" => Ok(op!("if")),
+        "def" => Ok(op!("def")),
         _ => Err(word),
     }
 }
 
-fn num_parse<'src>(word: &'src str) -> Result<Value<'src>, ()> {
+fn num_parse(word: &str) -> Result<Value, ()> {
     match word.parse::<i32>() {
         Ok(num) => Ok(Value::Num(num)),
         Err(_) => Err(()),
     }
 }
 
-fn sym_parse<'src>(word: &'src str, context: &mut ParseContext<'src>) -> Result<Value<'src>, ()> {
+fn sym_parse<'src>(word: &'src str, context: &mut ParseContext<'src>) -> Result<Value, ()> {
     if let Some(word) = word.strip_prefix("/") {
         match context.add_var(word) {
-            Ok(()) => Ok(Value::Sym(&word[0..])),
+            Ok(()) => Ok(sym!(&word[0..])),
             Err(()) => panic!("{:?} is already declared.", word),
         }
     } else {
-        Ok(Value::Sym(&word))
+        Ok(sym!(&word))
     }
 }
 
@@ -134,7 +162,7 @@ mod test {
 
     #[test]
     fn test_num_parse() {
-        assert_eq!(num_parse("123"), Ok(Value::Num(123)));
+        assert_eq!(num_parse("123"), Ok(num!(123)));
         assert_eq!(num_parse("abc"), Err(()));
     }
 
@@ -145,13 +173,8 @@ mod test {
         assert_eq!(
             parse(input, &mut parse_context),
             (
-                Value::Block(vec![
-                    Value::Num(1),
-                    Value::Num(2),
-                    Value::Op("+"),
-                    Value::Block(vec![Value::Num(3), Value::Num(4)])
-                ]),
-                &input[0..0]
+                Value::Block(vec![num!(1), num!(2), op!("+"), block![num!(3), num!(4)]]),
+                &[] as &[&str]
             )
         );
     }
@@ -162,10 +185,7 @@ mod test {
         let input = &["/a", "1", "def"];
         assert_eq!(
             parse(input, &mut parse_context),
-            (
-                Value::Block(vec![Value::Sym("a"), Value::Num(1), Value::Op("def")]),
-                &input[0..0]
-            )
+            (block![sym!("a"), num!(1), op!("def")], &[] as &[&str])
         );
         assert!(parse_context.has_var("a"));
     }
