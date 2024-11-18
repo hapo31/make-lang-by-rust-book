@@ -1,9 +1,10 @@
+use crate::num;
 use crate::parse::Value;
 use crate::vm::Vm;
 
-pub fn eval<'src>(code: Value<'src>, vm: &mut Vm<'src>) {
+pub fn eval(code: &Value, vm: &mut Vm) {
     match code {
-        Value::Op(op) => match op {
+        Value::Op(op) => match op.as_str() {
             "+" => add(vm),
             "-" => sub(vm),
             "*" => mul(vm),
@@ -16,13 +17,13 @@ pub fn eval<'src>(code: Value<'src>, vm: &mut Vm<'src>) {
         },
         Value::Sym(sym) => {
             // 変数がきちんとコード中で定義されているか
-            match vm.declares.get(sym) {
+            match vm.declares.get(sym.as_str()) {
                 // 変数が定義されている場合はその値をスタックに積む
                 Some(true) => vm
                     .stack
-                    .push(Value::Num(vm.vars.get(sym).unwrap().as_num())),
+                    .push(num!(vm.vars.get(sym.as_str()).unwrap().as_num())),
                 // 変数がまだ定義されていない場合はそのままスタックに積む
-                Some(false) => vm.stack.push(code),
+                Some(false) => vm.stack.push(code.clone()),
                 // 変数がどこにも定義されていない場合は実行時エラー
                 None => panic!("{sym:?} is not declared."),
             }
@@ -32,7 +33,7 @@ pub fn eval<'src>(code: Value<'src>, vm: &mut Vm<'src>) {
                 eval(value, vm);
             }
         }
-        _ => vm.stack.push(code),
+        _ => vm.stack.push(code.clone()),
     }
 }
 
@@ -56,10 +57,10 @@ impl_op! (gt, >);
 
 fn op_def(vm: &mut Vm) {
     let value = vm.stack.pop().unwrap();
-    let sym = vm.stack.pop().unwrap().to_sym();
-
-    vm.vars.insert(sym, value);
+    let sym = vm.stack.pop().unwrap();
+    let ref sym = *sym.to_sym().as_str();
     vm.declares.entry(sym).and_modify(|e| *e = true);
+    vm.vars.insert(sym, value);
 }
 
 fn op_if(vm: &mut Vm) {
@@ -67,18 +68,18 @@ fn op_if(vm: &mut Vm) {
     let true_branch = vm.stack.pop().unwrap().to_block();
     let cond = vm.stack.pop().unwrap().to_block();
 
-    for code in cond {
+    for code in &cond {
         eval(code, vm);
     }
 
     let cond_result = vm.stack.pop().unwrap().as_num();
 
     if cond_result != 0 {
-        for code in true_branch {
+        for code in &true_branch {
             eval(code, vm);
         }
     } else {
-        for code in false_branch {
+        for code in &false_branch {
             eval(code, vm);
         }
     }
@@ -87,9 +88,13 @@ fn op_if(vm: &mut Vm) {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::parse::{self, Value};
+    use crate::{
+        block, op,
+        parse::{self, Value},
+        sym,
+    };
 
-    fn new_test<'src, 'a>(code: Vec<Value<'src>>, declared_vars: &'a [&'src str]) -> Vm<'src> {
+    fn new_test<'src, 'a>(code: Vec<Value>, declared_vars: &'a [&'src str]) -> Vm<'src> {
         let mut parse_context = parse::ParseContext::new();
 
         for vars in declared_vars {
@@ -103,9 +108,9 @@ mod test {
         vm
     }
 
-    fn eval_codes<'a>(codes: &Vec<Value<'a>>, vm: &mut Vm<'a>) {
+    fn eval_codes<'a>(codes: &Vec<Value>, vm: &mut Vm<'a>) {
         for code in codes {
-            eval(code.clone(), vm);
+            eval(code, vm);
         }
     }
 
@@ -114,7 +119,7 @@ mod test {
         let mut vm = new_test(vec![Value::Num(1), Value::Num(2)], &[]);
 
         add(&mut vm);
-        assert_eq!(vm.stack, vec![Value::Num(3)]);
+        assert_eq!(vm.stack, vec![num!(3)]);
     }
 
     #[test]
@@ -171,33 +176,28 @@ mod test {
         let mut vm = new_test(vec![], &[]);
         eval_codes(
             &vec![
-                Value::Num(4),
-                Value::Num(4),
-                Value::Op("-"),
-                Value::Num(4),
-                Value::Num(2),
-                Value::Op("+"),
-                Value::Num(3),
-                Value::Op("/"),
-                Value::Num(4),
-                Value::Op("*"),
-                Value::Op("*"),
+                num!(4),
+                num!(4),
+                op!("-"),
+                num!(4),
+                num!(2),
+                op!("+"),
+                num!(3),
+                op!("/"),
+                num!(4),
+                op!("*"),
+                op!("*"),
             ],
             &mut vm,
         );
-        assert_eq!(vm.stack, vec![Value::Num(0)]);
+        assert_eq!(vm.stack, vec![num!(0)]);
     }
 
     #[test]
     fn test_eval_if() {
         let mut vm = new_test(vec![], &[]);
         eval_codes(
-            &vec![
-                Value::Num(1),
-                Value::Block(vec![Value::Num(1)]),
-                Value::Block(vec![Value::Num(2)]),
-                Value::Op("if"),
-            ],
+            &vec![num!(1), block![num!(1)], block![num!(2)], op!("if")],
             &mut vm,
         );
     }
@@ -208,21 +208,21 @@ mod test {
 
         eval_codes(
             &vec![
-                Value::Sym("a"),
-                Value::Num(1),
-                Value::Op("def"),
-                Value::Sym("b"),
-                Value::Num(2),
-                Value::Op("def"),
-                Value::Sym("a"),
-                Value::Sym("b"),
-                Value::Op("+"),
+                sym!("a"),
+                num!(1),
+                op!("def"),
+                sym!("b"),
+                num!(2),
+                op!("def"),
+                sym!("a"),
+                sym!("b"),
+                op!("+"),
             ],
             &mut vm,
         );
-        assert_eq!(vm.stack, vec![Value::Num(3)]);
-        assert_eq!(vm.vars.get("a"), Some(&Value::Num(1)));
-        assert_eq!(vm.vars.get("b"), Some(&Value::Num(2)));
+        assert_eq!(vm.stack, vec![num!(3)]);
+        assert_eq!(vm.vars.get("a"), Some(&num!(1)));
+        assert_eq!(vm.vars.get("b"), Some(&num!(2)));
         assert_eq!(vm.declares.get("a"), Some(&true));
         assert_eq!(vm.declares.get("b"), Some(&true));
     }
