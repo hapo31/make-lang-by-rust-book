@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Value {
     Num(i32),
@@ -36,33 +34,7 @@ macro_rules! block {
     };
 }
 
-#[derive(Debug)]
-pub struct ParseContext<'src> {
-    pub vars: HashSet<&'src str>,
-}
-
-impl<'src> ParseContext<'src> {
-    pub fn new() -> Self {
-        Self {
-            vars: HashSet::new(),
-        }
-    }
-
-    pub fn add_var(&mut self, var: &'src str) -> Result<(), ()> {
-        match self.vars.insert(var) {
-            true => Ok(()),
-            false => Err(()),
-        }
-    }
-
-    // 今のところテストでしか使ってないが、実コードでも使うようになったら cfg 外す
-    #[cfg(test)]
-    pub fn has_var(&self, var: &str) -> bool {
-        self.vars.contains(var)
-    }
-}
-
-impl<'src> Value {
+impl Value {
     pub fn as_num(&self) -> i32 {
         match self {
             Self::Num(num) => *num,
@@ -76,7 +48,7 @@ impl<'src> Value {
         }
     }
 
-    pub fn to_sym(&self) -> &String {
+    pub fn to_sym(self) -> String {
         match self {
             Self::Sym(sym) => sym,
             _ => panic!("Value is not a symbol, actual: {self:?}"),
@@ -84,14 +56,13 @@ impl<'src> Value {
     }
 }
 
-pub fn parse<'src, 'a>(
-    input: &'a [&'src str],
-    context: &mut ParseContext<'src>,
-) -> (Value, &'a [&'src str]) {
+pub fn parse<'src>(input: Vec<&'src str>) -> (Value, Vec<&'src str>) {
     let mut tokens = vec![];
-    let mut words = input;
+    let mut words = &input;
+    let mut rest: Vec<&'src str>;
 
-    while let Some((&word, mut rest)) = words.split_first() {
+    while let Some((&word, rest_slice)) = words.split_first() {
+        rest = rest_slice.to_vec();
         if word.is_empty() {
             break;
         }
@@ -99,29 +70,27 @@ pub fn parse<'src, 'a>(
         match word {
             "{" => {
                 let value;
-                (value, rest) = parse(rest, context);
+                (value, rest) = parse(rest.to_vec());
                 tokens.push(value);
             }
             "}" => {
-                return (Value::Block(tokens), rest);
+                return (Value::Block(tokens), rest.to_vec());
             }
             _ => {
                 let code = if let Ok(value) = num_parse(word) {
                     value
                 } else if let Ok(op) = op_parse(word) {
                     op
-                } else if let Ok(sym) = sym_parse(word, context) {
-                    sym
                 } else {
-                    panic!("{:?} could not be parsed.", word);
+                    sym_parse(word)
                 };
 
                 tokens.push(code);
             }
         }
-        words = rest;
+        words = &rest;
     }
-    (Value::Block(tokens), words)
+    (Value::Block(tokens), vec![])
 }
 
 fn op_parse(word: &str) -> Result<Value, &str> {
@@ -145,19 +114,18 @@ fn num_parse(word: &str) -> Result<Value, ()> {
     }
 }
 
-fn sym_parse<'src>(word: &'src str, context: &mut ParseContext<'src>) -> Result<Value, ()> {
+fn sym_parse<'src>(word: &'src str) -> Value {
     if let Some(word) = word.strip_prefix("/") {
-        match context.add_var(word) {
-            Ok(()) => Ok(sym!(&word[0..])),
-            Err(()) => panic!("{:?} is already declared.", word),
-        }
+        sym!(&word[0..])
     } else {
-        Ok(sym!(&word))
+        sym!(&word)
     }
 }
 
 #[cfg(test)]
 mod test {
+    use std::vec;
+
     use super::*;
 
     #[test]
@@ -168,25 +136,22 @@ mod test {
 
     #[test]
     fn test_block_parse() {
-        let mut parse_context = ParseContext::new();
-        let input = &["1", "2", "+", "{", "3", "4", "}"];
+        let input = vec!["1", "2", "+", "{", "3", "4", "}"];
         assert_eq!(
-            parse(input, &mut parse_context),
+            parse(input),
             (
                 Value::Block(vec![num!(1), num!(2), op!("+"), block![num!(3), num!(4)]]),
-                &[] as &[&str]
+                vec![]
             )
         );
     }
 
     #[test]
     fn test_vardef_parse() {
-        let mut parse_context = ParseContext::new();
-        let input = &["/a", "1", "def"];
+        let input = vec!["/a", "1", "def"];
         assert_eq!(
-            parse(input, &mut parse_context),
-            (block![sym!("a"), num!(1), op!("def")], &[] as &[&str])
+            parse(input),
+            (block![sym!("a"), num!(1), op!("def")], vec![])
         );
-        assert!(parse_context.has_var("a"));
     }
 }
