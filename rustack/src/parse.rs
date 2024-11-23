@@ -56,13 +56,13 @@ impl Value {
     }
 }
 
-pub fn parse<'src>(input: Vec<&'src str>) -> (Value, Vec<&'src str>) {
+pub fn parse<'src, 'a>(input: &'src [&'a str]) -> (Value, &'src [&'a str]) {
     let mut tokens = vec![];
     let mut words = &input;
-    let mut rest: Vec<&'src str>;
+    let mut rest: &'src [&'a str];
 
     while let Some((&word, rest_slice)) = words.split_first() {
-        rest = rest_slice.to_vec();
+        rest = rest_slice;
         if word.is_empty() {
             break;
         }
@@ -70,11 +70,11 @@ pub fn parse<'src>(input: Vec<&'src str>) -> (Value, Vec<&'src str>) {
         match word {
             "{" => {
                 let value;
-                (value, rest) = parse(rest.to_vec());
+                (value, rest) = parse(rest);
                 tokens.push(value);
             }
             "}" => {
-                return (Value::Block(tokens), rest.to_vec());
+                return (Value::Block(tokens), rest);
             }
             _ => {
                 let code = if let Ok(value) = num_parse(word) {
@@ -90,7 +90,7 @@ pub fn parse<'src>(input: Vec<&'src str>) -> (Value, Vec<&'src str>) {
         }
         words = &rest;
     }
-    (Value::Block(tokens), vec![])
+    (Value::Block(tokens), &[])
 }
 
 fn op_parse(word: &str) -> Result<Value, &str> {
@@ -136,22 +136,22 @@ mod test {
 
     #[test]
     fn test_block_parse() {
-        let input = vec!["1", "2", "+", "{", "3", "4", "}"];
+        let input = &["1", "2", "+", "{", "3", "4", "}"];
         assert_eq!(
             parse(input),
             (
                 Value::Block(vec![num!(1), num!(2), op!("+"), block![num!(3), num!(4)]]),
-                vec![]
+                &[] as &[&str]
             )
         );
     }
 
     #[test]
     fn test_vardef_parse() {
-        let input = vec!["/a", "1", "def"];
+        let input = &["/a", "1", "def"];
         assert_eq!(
             parse(input),
-            (block![sym!("a"), num!(1), op!("def")], vec![])
+            (block![sym!("a"), num!(1), op!("def")], &[] as &[&str])
         );
     }
 }
