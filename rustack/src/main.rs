@@ -22,15 +22,25 @@ fn main() {
 fn run_batch(buffer: impl BufRead) {
     let mut vm: Vm = Vm::new();
     for line in buffer.lines().flatten() {
-        let (codes, _) = parse(line.split_whitespace().collect::<Vec<_>>().as_slice());
-        eval(codes, &mut vm);
+        let parse_result = parse(line.split_whitespace().collect::<Vec<_>>().as_slice());
+
+        if let Ok(codes) = parse_result {
+            eval(codes, &mut vm);
+        } else if let Err(parse_error) = parse_result {
+            eprintln!("{}", parse_error.to_string());
+        }
     }
 }
 
 fn repl() {
     let mut vm: Vm = Vm::new();
     for line in std::io::stdin().lines().flatten() {
-        let (codes, _) = parse(line.split_whitespace().collect::<Vec<_>>().as_slice());
-        eval(codes, &mut vm);
+        let parse_result = parse(line.split_whitespace().collect::<Vec<_>>().as_slice());
+
+        if let Ok(codes) = parse_result {
+            eval(codes, &mut vm);
+        } else if let Err(parse_error) = parse_result {
+            eprintln!("{}", parse_error.to_string());
+        }
     }
 }

@@ -5,6 +5,7 @@ use std::collections::HashMap;
 pub struct Vm {
     pub stack: Vec<Value>,
     pub vars: HashMap<String, Option<Value>>,
+    pub blocks: Vec<Vec<Value>>,
 }
 
 impl Vm {
@@ -12,6 +13,7 @@ impl Vm {
         Self {
             stack: vec![],
             vars: HashMap::new(),
+            blocks: vec![],
         }
     }
 }

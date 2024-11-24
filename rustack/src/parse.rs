@@ -36,6 +36,19 @@ impl Value {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ParseError {
+    UnmatchedBranckets(String),
+}
+
+impl ParseError {
+    pub fn to_string(&self) -> String {
+        match self {
+            Self::UnmatchedBranckets(msg) => msg.clone(),
+        }
+    }
+}
+
 #[macro_export]
 macro_rules! num {
     ($value:expr) => {
@@ -64,10 +77,38 @@ macro_rules! block {
     };
 }
 
-pub fn parse<'src, 'a>(input: &'src [&'a str]) -> (Value, &'src [&'a str]) {
-    let mut tokens = vec![];
+pub struct ParseContext {
+    pub blocks: Vec<Vec<Value>>,
+}
+
+impl ParseContext {
+    pub fn new() -> Self {
+        Self { blocks: vec![] }
+    }
+
+    pub fn push_block(&mut self) -> &Vec<Value> {
+        self.blocks.push(vec![]);
+        self.blocks.last().unwrap()
+    }
+
+    pub fn pop_block(&mut self) -> Option<Vec<Value>> {
+        if self.blocks.len() == 1 {
+            return None;
+        }
+        self.blocks.pop()
+    }
+
+    pub fn push(&mut self, value: Value) {
+        self.blocks.last_mut().unwrap().push(value);
+    }
+}
+
+pub fn parse<'src, 'a>(input: &'src [&'a str]) -> Result<Value, ParseError> {
+    let mut context = ParseContext::new();
     let mut words = &input;
     let mut rest;
+
+    context.push_block();
 
     while let Some((&word, rest_slice)) = words.split_first() {
         rest = rest_slice;
@@ -77,12 +118,14 @@ pub fn parse<'src, 'a>(input: &'src [&'a str]) -> (Value, &'src [&'a str]) {
 
         match word {
             "{" => {
-                let value;
-                (value, rest) = parse(rest);
-                tokens.push(value);
+                context.push_block();
             }
             "}" => {
-                return (Value::Block(tokens), rest);
+                if let Some(block) = context.pop_block() {
+                    context.push(Value::Block(block));
+                } else {
+                    return Err(ParseError::UnmatchedBranckets("Unmatched '}'".to_string()));
+                }
             }
             _ => {
                 let code = if let Ok(value) = num_parse(word) {
@@ -93,12 +136,12 @@ pub fn parse<'src, 'a>(input: &'src [&'a str]) -> (Value, &'src [&'a str]) {
                     sym_parse(word)
                 };
 
-                tokens.push(code);
+                context.push(code);
             }
         }
         words = &rest;
     }
-    (Value::Block(tokens), &[])
+    Ok(Value::Block(context.pop_block().unwrap()))
 }
 
 fn op_parse(word: &str) -> Result<Value, &str> {
@@ -148,19 +191,18 @@ mod test {
         let input = &["1", "2", "+", "{", "3", "4", "}"];
         assert_eq!(
             parse(input),
-            (
-                Value::Block(vec![num!(1), num!(2), op!("+"), block![num!(3), num!(4)]]),
-                &[] as &[&str]
-            )
+            Ok(Value::Block(vec![
+                num!(1),
+                num!(2),
+                op!("+"),
+                block![num!(3), num!(4)]
+            ]))
         );
     }
 
     #[test]
     fn test_vardef_parse() {
         let input = &["/a", "1", "def"];
-        assert_eq!(
-            parse(input),
-            (block![sym!("a"), num!(1), op!("def")], &[] as &[&str])
-        );
+        assert_eq!(parse(input), Ok(block![sym!("a"), num!(1), op!("def")]));
     }
 }
