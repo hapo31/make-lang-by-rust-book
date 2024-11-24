@@ -26,6 +26,14 @@ impl Value {
             _ => panic!("Value is not a symbol, actual: {self:?}"),
         }
     }
+
+    pub fn to_string(&self) -> String {
+        match self {
+            Self::Num(num) => num.to_string(),
+            Self::Op(ref s) | Self::Sym(ref s) => s.clone(),
+            Self::Block(_) => String::from("<block>"),
+        }
+    }
 }
 
 #[macro_export]
@@ -103,6 +111,7 @@ fn op_parse(word: &str) -> Result<Value, &str> {
         ">" => Ok(op!(">")),
         "if" => Ok(op!("if")),
         "def" => Ok(op!("def")),
+        "puts" => Ok(op!("puts")),
         _ => Err(word),
     }
 }

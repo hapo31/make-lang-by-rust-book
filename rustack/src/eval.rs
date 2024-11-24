@@ -23,6 +23,7 @@ fn eval_impl(code: &Value, vm: &mut Vm) {
             ">" => gt(vm),
             "if" => op_if(vm),
             "def" => op_def(vm),
+            "puts" => op_puts(vm),
             _ => panic!("Unknown operator: {}", op),
         },
         Value::Sym(sym) => {
@@ -87,6 +88,11 @@ fn op_if(vm: &mut Vm) {
             eval_impl(code, vm);
         }
     }
+}
+
+fn op_puts(vm: &mut Vm) {
+    let value = vm.stack.pop().unwrap();
+    println!("{}", value.to_string());
 }
 
 #[cfg(test)]
