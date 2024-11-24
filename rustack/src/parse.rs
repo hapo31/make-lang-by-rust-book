@@ -6,6 +6,28 @@ pub enum Value {
     Block(Vec<Value>),
 }
 
+impl Value {
+    pub fn as_num(&self) -> i32 {
+        match self {
+            Self::Num(num) => *num,
+            _ => panic!("Value is not a number, actual: {self:?}"),
+        }
+    }
+    pub fn to_block(self) -> Vec<Value> {
+        match self {
+            Self::Block(block) => block,
+            _ => vec![self],
+        }
+    }
+
+    pub fn to_sym(self) -> String {
+        match self {
+            Self::Sym(sym) => sym,
+            _ => panic!("Value is not a symbol, actual: {self:?}"),
+        }
+    }
+}
+
 #[macro_export]
 macro_rules! num {
     ($value:expr) => {
@@ -34,32 +56,10 @@ macro_rules! block {
     };
 }
 
-impl Value {
-    pub fn as_num(&self) -> i32 {
-        match self {
-            Self::Num(num) => *num,
-            _ => panic!("Value is not a number, actual: {self:?}"),
-        }
-    }
-    pub fn to_block(self) -> Vec<Value> {
-        match self {
-            Self::Block(block) => block,
-            _ => vec![self],
-        }
-    }
-
-    pub fn to_sym(self) -> String {
-        match self {
-            Self::Sym(sym) => sym,
-            _ => panic!("Value is not a symbol, actual: {self:?}"),
-        }
-    }
-}
-
 pub fn parse<'src, 'a>(input: &'src [&'a str]) -> (Value, &'src [&'a str]) {
     let mut tokens = vec![];
     let mut words = &input;
-    let mut rest: &'src [&'a str];
+    let mut rest;
 
     while let Some((&word, rest_slice)) = words.split_first() {
         rest = rest_slice;
