@@ -77,6 +77,7 @@ macro_rules! block {
     };
 }
 
+#[derive(Debug)]
 pub struct ParseContext {
     pub blocks: Vec<Vec<Value>>,
 }
@@ -92,7 +93,7 @@ impl ParseContext {
     }
 
     pub fn pop_block(&mut self) -> Option<Vec<Value>> {
-        if self.blocks.len() == 1 {
+        if self.blocks.len() == 0 {
             return None;
         }
         self.blocks.pop()
